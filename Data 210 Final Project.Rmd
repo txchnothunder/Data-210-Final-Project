@@ -4,6 +4,7 @@ author: "Ethan Wong"
 output:
   pdf_document: default
   html_document: default
+  
 date: "2026-03-16"
 ---
 
@@ -14,6 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(here)
 library(ggplot2)
 library(tidyr)
+library(tseries)
 
 
 source(here("scripts/01_read_df.R"))
@@ -22,151 +24,202 @@ source(here("scripts/01_read_df.R"))
 source(here("scripts/02_eda_setup.R"))
 source(here("scripts/03_univariate_eda.R"))
 source(here("scripts/04_bivariate_eda.R"))
+source(here("scripts/05_stationary_testing.R"))
 ```
 
-# Introduction
+# Opening Page
 
+-   Include title, name, affiliation, UCI logo, (class name) statistical methods
 
-```{r stationarity_testing}
-library(tseries)
+# Abstract
 
-nvda <- original_df
-nvda$Date       <- as.Date(nvda$Date)
-nvda$log_return <- c(NA, diff(log(nvda$Close)))
+-   Skipped for now
+
+# Introduction 
+
+The academic foundation of stock forecasting begins with the Efficient Market Hypothesis (EMH), famously championed by Eugene Fama in the 1960s. The EMH states stock prices follow a "random walk," meaning all known information is already "priced in," and future movements are impossible to predict consistently. Under this framework, any attempt to forecast NVIDIA’s daily direction would be no more effective than a coin flip. However, as the field of behavioral finance emerged, researchers began to identify "market anomalies"—persistent patterns driven by human psychology, such as overreaction to news or herding behavior. This led to the Adaptive Markets Hypothesis (AMH), which suggests that while markets are generally efficient, they undergo periods of temporary inefficiency. For a high-volatility stock like NVDA, these periods of inefficiency offer a window for quantitative models to capture "alpha" by identifying recurring structural patterns in historical data.
+
+------------------------------------------------------------------------
+
+# Literature Review
+
+In statistical finance, the primary challenge for modeling stock price movements is that financial time series are rarely stationary, and thus are not independent and identically distributed (i.i.d.). As formalized by Cont (2001), financial returns exhibit "stylized facts": most notably, fat tails, volatility clustering, and the lack of autocorrelation in returns. This fundamentally challenges the assumption of stationarity required for many classical statistical models. Because stock prices represent dynamic systems, the data-generating process is inherently non-stationary. As a result, rigorous analysis must account for these features, often necessitating the use of stationarity tests like the Augmented Dickey-Fuller (ADF) test (Dickey & Fuller, 1979) to ensure that the input features do not produce spurious correlations or biased coefficients.
+
+To model these dependencies, researchers often employ the Autoregressive Integrated Moving Average (ARIMA) model (Box & Jenkins, 1970). ARIMA serves as a foundational econometric framework, utilizing autoregressive properties and moving averages to capture linear patterns within univariate time series (Tsay, 2014). In this project, ARIMA acts as the "statistical floor," providing a baseline of predictive performance against which more complex models are measured.
+
+Beyond classical linear models, modern data science emphasizes the role of feature transformation to mitigate stochastic noise. Raw price series are often augmented with technical indicators—such as the Relative Strength Index (RSI) for momentum or Moving Average Convergence Divergence (MACD) for trend direction—to act as "smoothed" feature inputs. Studies such as Fischer & Krauss (2018) demonstrate that ensemble methods and deep learning models derive their predictive power from these non-linear relationships, which help filter the noise inherent in high-beta assets like NVIDIA.
+
+When framing stock prediction as a binary classification problem—predicting if a price will increase ($+1$) or decrease ($0$) the next day—the literature evaluates the robustness of non-linear classifiers against the linear baseline of ARIMA. While Support Vector Machines (SVM) are favored for finding optimal hyperplanes in high-dimensional spaces (Bustos & Pomares-Hernández, 2017), comparative studies by Saberironaghi et al. (2024) suggest that ensemble methods, such as Random Forests, often yield superior robustness by mitigating overfitting. Furthermore, while LSTM networks (Hochreiter & Schmidhuber, 1997) are recognized for capturing long-range temporal dependencies, empirical evidence (Saberironaghi et al., 2024) indicates that model effectiveness is highly dependent on the choice of validation metrics, emphasizing the need for risk-adjusted performance measures, such as the Sharpe Ratio, over simple directional accuracy.
+
+------------------------------------------------------------------------
+
+# Data Introduction
+
+This project utilizes a historical dataset of NVIDIA Corporation (NVDA) stock, covering the decade-long period from January 2016 to December 2026. The dataset was sourced from Kaggle and consists of 2,514 daily trading observations (stocks only trade on business days). Given the objective of constructing a predictive framework for directional movement, the data is structured as a multivariate time-series containing the following variables:
+
+-   **Date**: The trading date, serving as the temporal index for the series.
+
+-   **Open / High / Low / Close**: Daily price metrics in USD, representing the opening, peak, trough, and final settlement prices, respectively.
+
+-   **Volume**: The total number of shares traded during the session, which serves as a proxy for market liquidity and institutional interest.
+
+The selection of this specific timeframe is critical for the analysis, as it captures a decade of significant growth for NVIDIA, marked by its evolution from a graphics-focused chip manufacturer to a central player in the global Artificial Intelligence (AI) infrastructure. From a statistical perspective, the data exhibits high levels of volatility and structural shifts, particularly in the latter half of the series (2023–2026).
+
+------------------------------------------------------------------------
+
+# EDA
+
+## Univariate Exploration
+
+```{r figure1.1, echo=FALSE}
+
+# Univariate Exploration of Price
+
+par(mfrow = c(2, 2), oma = c(0, 0, 3, 0), mar = c(4, 4, 2, 1))
+
+hist(df$Close, main = "Close Price", xlab = "USD", col = "#76b900", breaks = 60)
+hist(df$High,  main = "High Price",  xlab = "USD", col = "#4a90d9", breaks = 60)
+hist(df$Low,   main = "Low Price",   xlab = "USD", col = "#e05c5c", breaks = 60)
+hist(df$Open,  main = "Open Price",  xlab = "USD", col = "#f4a83a", breaks = 60)
+
+mtext("Figure 1.1: Distribution of Asset Prices", side = 3, outer = TRUE, line = 1, cex = 1.2, font = 2)
+
+par(mfrow = c(1, 1), oma = c(0, 0, 0, 0), mar = c(5, 4, 4, 2))
+```
+
+All four of the histograms are nearly identical with one another, having an extreme right-skew. This means that the prices for NVIDIA stock seem to range between \$0 and \$10 for the majority of the past 10 years. However, there have been instances where it hits higher stock (eg \~\$200). Since this is a histogram and thus does not investigate the time, we can only conclude that NVIDIA's stock for the past ten years averaged between roughly around \$0 and \$50.
+
+```{r figure1.2, echo=FALSE}
+
+# Univariate Exploration of Price (Logarithmic)
+
+par(mfrow = c(2, 2), oma = c(0, 0, 3, 0), mar = c(4, 4, 2, 1))
+
+hist(log(df$Close), main = "Log(Close Price)", xlab = "log(USD)", col = "#76b900", breaks = 60)
+hist(log(df$High),  main = "Log(High Price)",  xlab = "log(USD)", col = "#4a90d9", breaks = 60)
+hist(log(df$Low),   main = "Log(Low Price)",   xlab = "log(USD)", col = "#e05c5c", breaks = 60)
+hist(log(df$Open),  main = "Log(Open Price)",  xlab = "log(USD)", col = "#f4a83a", breaks = 60)
+
+mtext("Figure 1.2: Log-Transformed Price Distributions", side = 3, outer = TRUE, line = 1, cex = 1.2, font = 2)
+
+par(mfrow = c(1, 1), oma = c(0, 0, 0, 0), mar = c(5, 4, 4, 2))
+
+```
+
+From the log-transformed histograms, we can see that it is a bimodal distribution, meaning that the stock price did not follow a single continuous distribution, but instead clustered around two separate central tendencies. This suggests that NVIDIA spent extended periods of time trading around two distinct price levels, accumulating enough observations at each to form two visible peaks. The trough between the two peaks indicates that the stock passed through the intermediate price range relatively quickly, spending comparatively little time there.
+
+```{r figure2.1, echo=FALSE}
+
+# Univariate Exploration of Volume
+
+hist(df$Volume_M,
+     main   = "Figure 2.1: Daily Trading Volume (Millions of Shares)",
+     xlab   = "Volume (Millions)",
+     col    = "#9b59b6",
+     breaks = 60)
+
+```
+
+The distribution is strongly right-skewed with a clear single peak around 300–400 million shares, falling off sharply to the right. The bulk of trading days sit between roughly 100–700 million shares, and the distribution becomes very sparse beyond 1,000 million.
+
+```{r figure2.2, echo=FALSE}
+
+# Univariate Exploration of Volume (Logarithmic)
+
+hist(log(df$Volume_M),
+     main   = "Figure 2.2: Log Daily Trading Volume (Millions of Shares)",
+     xlab   = "log(Volume in Millions)",
+     col    = "#9b59b6",
+     breaks = 50)
+
+```
+
+After log-transforming, the distribution becomes remarkably symmetric and approximately bell-shaped, centred around log(6). Unlike the price histograms, there is no bimodality here.
+
+## Bivariate Exploration
+
+```{r figure3.1-3.2, echo=FALSE}
+
+# Bivariate Exploration of Price and Time
+
+# Close price over time
+ggplot(df, aes(x = Date, y = Close)) +
+  geom_line(color = "#76b900", linewidth = 0.6) +
+  labs(title = "Figure 3.1: NVDA Close Price (2016–2025)", x = "Date", y = "Close (USD)") +
+  theme_minimal()
+
+# Log scale — better shows early growth
+ggplot(df, aes(x = Date, y = Close)) +
+  geom_line(color = "#76b900", linewidth = 0.6) +
+  scale_y_log10() +
+  labs(title = "Figure 3.2: NVDA Close Price — Log Scale", x = "Date", y = "Close (log USD)") +
+  theme_minimal()
+
+```
+
+The time series reveals that from the years of 2016-2023, growth was slow (at least compared to more recent years). There seemed to be a significant increase in 2022, though it dipped back down. However, starting from 2023, NVIDIA seemed to have a meteoric rise. The graph displays NVIDIA's stock as an exponential growth.
+
+```{r figure 4.1, echo=FALSE}
+
+# Bivariate Exploration of Volume and Time
+
+ggplot(df, aes(x = Date, y = Volume_M)) +
+  geom_line(color = "#9b59b6", linewidth = 0.4, alpha = 0.7) +
+  labs(title    = "Figure 4: NVDA Daily Trading Volume (Millions of Shares), 2016–2025",
+       x        = "Date",
+       y        = "Volume (Millions)") +
+  theme_minimal()
+```
+
+When observing the volume of trades, we see that the volume appears to be highest in the earlier years (2016-2019) and gradually declines or stabilizes over time. The baseline trading volume appears to consolidate, though it continues to exhibit consistent, smaller-scale fluctuations.
+
+## Stationary Testing
+
+To ensure the validity of our predictive models, we must address the issue of stationarity in our financial data. Stock prices are naturally non-stationary, meaning they exhibit trends and changing mean values over time that makes direct modeling unreliable. If we use raw, non-stationary data, our models may generate false correlations, where they mistake a simple upward price drift for a genuine predictive signal. To confirm this, we use the Augmented Dickey-Fuller (ADF) test, which assesses whether a series has a unit root (is non-stationary). 
+
+Converting our data into a stationary format is a fundamental requirement in time-series analysis, as it ensures the model is learning from actual market fluctuations rather than chasing a trend line.
+
+```{r stationary_testing, echo = FALSE}
 
 # ADF on raw price — expect FAIL (non-stationary)
 cat("=== ADF Test: Raw Close Price ===\n")
-print(adf.test(nvda$Close))
+print(adf.test(df$Close))
 
 # ADF on log returns — expect PASS (stationary)
-log_ret_clean <- na.omit(nvda$log_return)
+log_ret_clean <- na.omit(df$log_return)
 cat("\n=== ADF Test: Log Returns ===\n")
 print(adf.test(log_ret_clean))
+
 ```
 
-```{r structural_break}
-library(strucchange)
+For the raw `Close` price, the test returned a p-value of 0.99. Since this is well above the 0.05 threshold, we cannot reject the null hypothesis, confirming the price data is non-stationary and unsuitable for direct modeling. In contrast, when we apply the ADF test to our `log_return` series, the p-value drops to 0.01. This allows us to reject the null hypothesis with high confidence, statistically confirming that the log returns are stationary. By transforming the raw prices into log returns, we have effectively removed the stochastic trend and created a stable series. In other words, by using log returns instead of the given price data, we will be able to ensure our models use and learn legitimate patterns in volatility rather than chasing artificial trends.
 
-log_ret_clean <- na.omit(nvda$log_return)
-log_ret_ts    <- ts(log_ret_clean)
+------------------------------------------------------------------------
 
-# CUSUM test
-cusum_test <- efp(log_ret_ts ~ 1, type = "OLS-CUSUM")
-plot(cusum_test, main = "CUSUM Test — Log Returns")
+# Methods
 
-# Breakpoint test
-bp <- breakpoints(log_ret_ts ~ 1)
-summary(bp)
+------------------------------------------------------------------------
 
-# Check if any breakpoints were actually found
-if (all(is.na(bp$breakpoints))) {
-  cat("\nNo statistically significant structural break found in log returns.\n")
-  cat("Interpretation: while price levels clearly shifted regime, daily log returns\n")
-  cat("remain statistically stable throughout — consistent with market efficiency.\n")
-  cat("Decision: use full dataset for modelling.\n")
-  
-  break_date <- min(nvda$Date, na.rm = TRUE)  # use full dataset
-  
-} else {
-  break_idx  <- bp$breakpoints[1]
-  break_date <- nvda$Date[which(!is.na(nvda$log_return))][break_idx]
-  cat("\nDetected structural break date:", as.character(break_date), "\n")
-}
-```
+# Results
 
-```{r model_setup}
-library(zoo)
+------------------------------------------------------------------------
 
-# Use only data from the structural break date onward
-nvda_post <- nvda[nvda$Date >= break_date, ]
+# Discussion
 
-# Features
-nvda_post$lag1_return       <- c(NA, head(nvda_post$log_return, -1))
-nvda_post$lag2_return       <- c(NA, NA, head(nvda_post$log_return, -2))
-nvda_post$lag3_return       <- c(NA, NA, NA, head(nvda_post$log_return, -3))
-nvda_post$ma5               <- as.numeric(stats::filter(nvda_post$Close, rep(1/5,  5),  sides = 1))
-nvda_post$ma20              <- as.numeric(stats::filter(nvda_post$Close, rep(1/20, 20), sides = 1))
-nvda_post$ma_signal         <- as.numeric(nvda_post$ma5 > nvda_post$ma20)
-nvda_post$intraday_range_pct <- (nvda_post$High - nvda_post$Low) / nvda_post$Close
+------------------------------------------------------------------------
 
-# Target: next day's log return
-nvda_post$next_return <- c(nvda_post$log_return[-1], NA)
+# References
 
-nvda_model <- na.omit(nvda_post[, c("Date", "next_return", "lag1_return",
-                                     "lag2_return", "lag3_return",
-                                     "ma_signal", "intraday_range_pct")])
+Cont, R. (2001). "Empirical properties of asset returns." Quantitative Finance.
 
-cat("Rows after structural break cutoff:", nrow(nvda_model), "\n")
-```
+Box, G. E. P., & Jenkins, G. M. (1970). Time Series Analysis: Forecasting and Control.
 
-```{r rolling_window_model}
-window_size <- 126   # ~6 months — shorter window suits the faster-moving regime
-n           <- nrow(nvda_model)
-preds       <- rep(NA, n)
-actuals     <- rep(NA, n)
+Tsay, R. S. (2014). Multivariate Time Series Analysis. Wiley.
 
-for (i in (window_size + 1):n) {
-  train <- nvda_model[(i - window_size):(i - 1), ]
-  test  <- nvda_model[i, ]
-  
-  model <- lm(next_return ~ lag1_return + lag2_return + lag3_return +
-                             ma_signal + intraday_range_pct,
-              data = train)
-  
-  preds[i]   <- predict(model, newdata = test)
-  actuals[i] <- test$next_return
-}
+Dickey, D. A., & Fuller, W. A. (1979). "Distribution of the estimators for autoregressive time series." JASA.
 
-cat("Rolling window complete.\n")
-```
+Hochreiter, S., & Schmidhuber, J. (1997). "Long Short-Term Memory." Neural Computation.
 
-```{r model_evaluation}
-valid   <- !is.na(preds)
-p       <- preds[valid]
-a       <- actuals[valid]
+Saberironaghi, M., et al. (2024). "Stock Market Prediction Using ML/DL." JAIC.
 
-rmse    <- sqrt(mean((p - a)^2))
-mae     <- mean(abs(p - a))
-
-# Direction accuracy as a secondary metric
-dir_acc <- mean(sign(p) == sign(a))
-baseline_dir <- max(mean(a > 0), mean(a < 0))  # always guess majority direction
-
-cat("RMSE:                  ", round(rmse, 6), "\n")
-cat("MAE:                   ", round(mae,  6), "\n")
-cat("Direction Accuracy:    ", round(dir_acc    * 100, 2), "%\n")
-cat("Baseline (majority):   ", round(baseline_dir * 100, 2), "%\n")
-```
-
-```{r model_visualisation}
-results_df <- data.frame(
-  Date      = nvda_model$Date[valid],
-  Predicted = p,
-  Actual    = a
-)
-
-# Predicted vs actual returns
-ggplot(results_df, aes(x = Date)) +
-  geom_line(aes(y = Actual),    color = "#4a90d9", linewidth = 0.4, alpha = 0.7) +
-  geom_line(aes(y = Predicted), color = "#76b900", linewidth = 0.5, alpha = 0.9) +
-  labs(title    = "Predicted vs Actual Daily Log Returns",
-       subtitle = "Green = predicted | Blue = actual",
-       x = "Date", y = "Log Return") +
-  theme_minimal()
-
-# Rolling direction accuracy
-results_df$correct_dir <- as.numeric(sign(p) == sign(a))
-results_df$rolling_dir <- zoo::rollmean(results_df$correct_dir, k = 60,
-                                         fill = NA, align = "right")
-
-ggplot(results_df, aes(x = Date, y = rolling_dir)) +
-  geom_line(color = "#76b900", linewidth = 0.7) +
-  geom_hline(yintercept = baseline_dir, color = "#e05c5c",
-             linetype = "dashed", linewidth = 0.8) +
-  geom_hline(yintercept = 0.5, color = "#4a90d9",
-             linetype = "dotted", linewidth = 0.6) +
-  labs(title    = "Rolling 60-Day Direction Accuracy — Linear Regression on Log Returns",
-       subtitle = "Red dashed = majority-class baseline | Blue dotted = 50%",
-       x = "Date", y = "Direction Accuracy (60-day rolling)") +
-  theme_minimal()
-```
+Bustos, O., & Pomares-Hernández, H. (2017). "Stock market movement direction prediction." Expert Systems with Applications.

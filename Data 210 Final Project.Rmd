@@ -16,6 +16,10 @@ library(here)
 library(ggplot2)
 library(tidyr)
 library(tseries)
+library(forecast)
+library(cluster)
+library(dplyr)
+
 
 
 source(here("scripts/01_read_df.R"))
@@ -25,6 +29,7 @@ source(here("scripts/02_eda_setup.R"))
 source(here("scripts/03_univariate_eda.R"))
 source(here("scripts/04_bivariate_eda.R"))
 source(here("scripts/05_stationary_testing.R"))
+source(here("scripts/06_autocorrelation_plots.R"))
 ```
 
 # Opening Page
@@ -159,7 +164,7 @@ ggplot(df, aes(x = Date, y = Close)) +
 
 The time series reveals that from the years of 2016-2023, growth was slow (at least compared to more recent years). There seemed to be a significant increase in 2022, though it dipped back down. However, starting from 2023, NVIDIA seemed to have a meteoric rise. The graph displays NVIDIA's stock as an exponential growth.
 
-```{r figure 4.1, echo=FALSE}
+```{r figure 4, echo=FALSE}
 
 # Bivariate Exploration of Volume and Time
 
@@ -193,6 +198,60 @@ print(adf.test(log_ret_clean))
 ```
 
 For the raw `Close` price, the test returned a p-value of 0.99. Since this is well above the 0.05 threshold, we cannot reject the null hypothesis, confirming the price data is non-stationary and unsuitable for direct modeling. In contrast, when we apply the ADF test to our `log_return` series, the p-value drops to 0.01. This allows us to reject the null hypothesis with high confidence, statistically confirming that the log returns are stationary. By transforming the raw prices into log returns, we have effectively removed the stochastic trend and created a stable series. In other words, by using log returns instead of the given price data, we will be able to ensure our models use and learn legitimate patterns in volatility rather than chasing artificial trends.
+
+## Autocorrelation Plots
+
+```{r figure 5.1, echo = FALSE}
+
+par(mar = c(5, 4, 4, 2))
+
+Acf(log_ret_plot, main = "Figure 5.1: ACF of NVDA Log Returns", lag.max = 35)
+
+```
+
+To evaluate the predictability of NVIDIA’s stock, we performed an Autocorrelation Function (ACF) analysis on our stationary log returns. The purpose of an ACF plot is to identify whether the current price movement has any linear dependency on its past values. If a time series exhibits significant autocorrelation, it suggests that historical returns can serve as a predictor for future values; if not, the series behaves as a random walk (implying past data provides no information about future direction).
+
+Our output for the NVDA log returns shows that nearly all spikes fall within the blue dashed lines, which represent the 95% confidence interval for statistical significance. This absence of consistent linear autocorrelation indicates that the daily returns behave essentially as 'white noise.' 
+
+Since linear dependencies are largely absent, we move away from simple linear forecasting models, such as basic ARIMA, toward more sophisticated non-linear machine learning architectures capable of detecting these complex patterns in variance and tail behavior that traditional autocorrelation tests cannot observe.
+
+```{r figure5.2, echo = FALSE}
+
+Pacf(log_ret_plot, main = "Figure 5.2: PACF of NVDA Log Returns", lag.max = 35)
+
+```
+
+To get a more detailed look at our data, we used the Partial Autocorrelation Function (PACF). While the ACF shows the total correlation between today's return and past returns, the PACF isolates the direct relationship between a return and its value on a specific past day, while ignoring any influence from the days in between. In other words, it cleans up the noise to find a unique, independent link between a specific point in time and its history.
+
+The PACF plot mirrors our previous ACF findings. The vast majority of the bars stay within the blue dashed lines, which represent the 95% confidence interval. Even though a few bars might slightly cross these lines, there is no consistent or repeating pattern.
+
+## Clustering
+
+```{r figure6, echo = FALSE}
+
+# K-means Clustering
+features <- df %>% select(Close, High, Low, Open, Volume)
+scaled_features <- scale(features)
+
+set.seed(123)
+kmeans_result <- kmeans(scaled_features, centers = 3)
+
+df$cluster <- as.factor(kmeans_result$cluster)
+
+ggplot(df, aes(x = Close, y = Volume, color = cluster)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Figure 6: K-Means Clustering of NVDA Price and Volume",
+       x = "Close Price",
+       y = "Volume",
+       color = "Cluster ID")
+
+```
+
+To explore structural segments within the dataset, we performed K-means clustering on the price and volume features. It is important to note that clustering is fundamentally ill-suited for this dataset, as we have already established through our stationarity tests that the data is non-stationary and lacks stable, repeatable patterns. However, as this analysis was a project requirement, we proceeded with a basic K-means approach to empirically demonstrate this limitation.
+
+As illustrated in Figure 6, the algorithm partitioned the data into three distinct groups; however, these clusters primarily segregate the data based on simple magnitude—grouping periods of low price/volume versus high price/volume—rather than identifying actionable market dynamics.  This result confirms that standard clustering is an inefficient tool for this specific time-series dataset. Because financial returns are governed by complex temporal dependencies rather than static spatial proximity, basic clustering algorithms fail to isolate meaningful predictive signals. Consequently, we have excluded these cluster assignments from our final predictive modeling phase, opting instead for feature engineering and non-linear classification models that are better suited to capturing the subtle, time-dependent patterns essential for stock price forecasting.
+
 
 ------------------------------------------------------------------------
 

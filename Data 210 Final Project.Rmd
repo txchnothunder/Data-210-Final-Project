@@ -1,11 +1,11 @@
 ---
-title: "Data 210 - Final Project"
-author: "Ethan Wong"
+header-includes:
+   - \usepackage{setspace}
+   - \setstretch{1.15}
 output:
   pdf_document: 
     keep_tex: false
   html_document: default
-date: "2026-03-16"
 ---
 
 
@@ -33,22 +33,52 @@ df$Volume_M <- df$Volume / 1e6
 
 ```
 
-# Opening Page
+\begin{titlepage}
 
-**Title:** Predicting the Unpredictable: A Quantitative Analysis of NVIDIA Stock Directional Forecasting
+\begin{center}
 
-**Author:** Ethan Wong
+\vspace*{3cm}
 
-**Affiliation:** University of California, Irvine — Donald Bren School of Information and Computer Sciences
+{\LARGE \textbf{Quantitative Analysis of NVIDIA}}
 
-**Course:** DATA 210P — Statistical Methods for Data Science
+\vspace{0.3cm}
 
----
+{\LARGE \textbf{Stock Directional Forecasting}}
+
+\vspace{0.5cm}
+
+{\large \textit{DATA 210 — Statistical Methods I}}
+
+\vspace{1cm}
+
+{\large Ethan Wong}
+
+\vspace{0.2cm}
+
+{\normalsize University of California, Irvine}
+
+\vspace{0.1cm}
+
+{\normalsize Donald Bren School of Information and Computer Sciences}
+
+\vspace{0.2cm}
+
+{\normalsize March 16, 2026}
+
+\vfill
+```{r logo, echo=FALSE, out.width="35%", fig.align="center"}
+knitr::include_graphics("uci_logo.png")
+```
+
+\end{center}
+
+\end{titlepage}
+
+\newpage
 
 # Abstract
 
-This project investigates whether historical price and volume data can be used to predict the daily directional movement of NVIDIA Corporation (NVDA) stock over a decade-long period from January 2016 to December 2025. As one of the most closely watched equities in the market, NVIDIA
-presents a particularly compelling case study for testing the limits of quantitative forecasting. The analysis is grounded in two competing theoretical frameworks: the Efficient Market Hypothesis (EMH), which holds that all publicly available information is already priced in, and the Adaptive Markets Hypothesis (AMH), which allows for temporary inefficiencies in highly volatile assets. Understanding which framework better describes NVIDIA's behavior has practical implications for retail investors, quantitative analysts, and anyone evaluating the feasibility of algorithmic trading strategies on high-profile large-cap equities.
+This project investigates whether historical price and volume data can be used to predict the daily directional movement of NVIDIA Corporation (NVDA) stock over a decade-long period from January 2016 to December 2025. As one of the most closely watched equities in the market, NVIDIA presents a particularly compelling case study for testing the limits of quantitative forecasting. The analysis is grounded in two competing theoretical frameworks: the Efficient Market Hypothesis (EMH), which holds that all publicly available information is already priced in, and the Adaptive Markets Hypothesis (AMH), which allows for temporary inefficiencies in highly volatile assets. Understanding which framework better describes NVIDIA's behavior has practical implications for retail investors, quantitative analysts, and anyone evaluating the feasibility of algorithmic trading strategies on high-profile large-cap equities.
 
 The dataset consists of 2,514 daily OHLCV observations sourced from Kaggle, covering a period that spans NVIDIA's transformation from a gaming hardware company to the dominant supplier of AI accelerators. After stationarity testing via the Augmented Dickey-Fuller (ADF) test and log-return transformation, technical indicators were engineered as classification features, including RSI, MACD, Bollinger Bands, and rolling volatility measures. Four models were trained and evaluated on next-day directional prediction: ARIMA, Logistic Regression with L2 regularization, Random Forest, and a Soft Voting Ensemble combining the Logistic Regression and Random Forest models. All four models converged on accuracy figures between 51% and 55%, barely above the 50% random-chance baseline. Random Forest produced the most balanced result with the highest precision (56.9%), while Logistic Regression and ARIMA both collapsed toward predicting "up" on nearly every day, exploiting the asset's bull-market base rate rather than extracting genuine signal. The ensemble failed to correct for this bias, instead inheriting Logistic Regression's upward skew. Taken together, the results are broadly consistent with the EMH: for a heavily covered, highly liquid stock like NVIDIA, price history alone provides insufficient signal for systematic directional forecasting.
 
@@ -68,7 +98,7 @@ For univariate time-series forecasting, the Autoregressive Integrated Moving Ave
 
 Beyond pure time-series models, framing next-day price direction as a binary classification problem (will the stock close higher or lower?) allows us to apply standard supervised learning methods. Logistic regression provides an interpretable linear baseline, while ensemble methods like Random Forest (Breiman, 2001) capture non-linear relationships between engineered features such as RSI, MACD, and rolling volatility. Fischer & Krauss (2018) demonstrate that these feature-rich approaches can extract meaningful signal from technical indicators in financial classification tasks, though performance tends to hover close to the random-walk baseline for large-cap equities, a result broadly consistent with the Efficient Market Hypothesis.
 
-
+---
 
 # Data Introduction
 
@@ -82,9 +112,9 @@ This project utilizes a historical dataset of NVIDIA Corporation (NVDA) stock, c
 
 The selection of this specific timeframe is critical for the analysis, as it captures a decade of significant growth for NVIDIA, marked by its evolution from a graphics-focused chip manufacturer to a central player in the global Artificial Intelligence (AI) infrastructure. From a statistical perspective, the data exhibits high levels of volatility and structural shifts, particularly in the latter half of the series (2023 to 2026).
 
----
+\newpage
 
-# EDA
+# Exploratory Data Analysis
 
 ## Feature Engineering
 
@@ -177,9 +207,7 @@ print(names(df_model))
 
 ```
 
-After accounting for rolling window warmup periods (the longest window being 26 days for MACD), the final modeling dataset `df_model` retains the large majority of the original 2,514 observations. All subsequent EDA plots and stationarity tests are performed on this enriched dataset.
-
-
+The engineered feature set reflects four distinct perspectives on market behavior. The first group captures price structure: intraday range, overnight gap, and close position describe the geometry of how wide the day's move was, whether the stock opened with a gap relative to the prior close, and where within the day's range the price ultimately settled. The second group consists of return-based features: the contemporaneous log return alongside five lagged versions, plus 5- and 20-day rolling means and standard deviations of those returns, which together encode short-term momentum, mean-reversion tendencies, and the recent volatility regime. The third group covers standard technical indicators drawn from the quantitative finance literature, which are RSI, MACD histogram, and Bollinger Band metrics. Each of them distills a different aspect of trend strength, momentum crossovers, and price position relative to a volatility-adjusted envelope. Finally, the fourth group addresses volume dynamics through relative volume (today's volume normalized against its 20-day average) and log-transformed raw volume, which distinguish between structurally high-volume periods and days of unusual institutional activity. Taken together, these 20 features represent a broad sweep of the information available in daily OHLCV data, deliberately designed so that if any dimension of price or volume carries predictive signal for next-day direction, the models have the opportunity to find it.
 
 ## Univariate Exploration
 
@@ -187,7 +215,7 @@ The univariate analysis focuses on two key distributions: the log-transformed as
 
 ### Price Distribution
 
-```{r figure1, echo=FALSE}
+```{r figure1, echo=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 # Univariate Exploration of Price (Logarithmic)
 
@@ -208,38 +236,25 @@ After log-transforming, a bimodal distribution emerges across all four price var
 
 ### Log Return Distribution
 
-```{r figure2, echo=FALSE}
-
-# Log Returns Distribution
-hist(df_model$log_return,
-     main   = "Figure 2: Distribution of Daily Log Returns",
-     xlab   = "Log Return",
-     col    = "#2ecc71",
-     breaks = 80)
-
-```
-
-The log return distribution is approximately symmetric and centered near zero, consistent with the random-walk behavior described in the Efficient Market Hypothesis. However, the distribution exhibits notably fat tails, large positive and negative returns occur far more frequently than a normal distribution would predict. This "leptokurtosis" is a well-documented stylized fact of financial returns (Cont, 2001) and motivates the use of models capable of handling non-Gaussian residuals.
-
-
+When looking at log return distribution is approximately symmetric and centered near zero, consistent with the random-walk behavior described in the Efficient Market Hypothesis. However, the distribution exhibits notably fat tails, large positive and negative returns occur far more frequently than a normal distribution would predict. This "leptokurtosis" is a well-documented stylized fact of financial returns (Cont, 2001) and motivates the use of models capable of handling non-Gaussian residuals.
 
 ## Bivariate Exploration
 
 ### Price and Volume Over Time
 
-```{r figure3, echo=FALSE, message=FALSE}
+```{r figure2, echo=FALSE, message=FALSE, fig.width=6, fig.height=3, out.width="85%"}
 
 # Close price over time
 ggplot(df, aes(x = Date, y = Close)) +
   geom_line(color = "#76b900", linewidth = 0.6) +
-  labs(title = "Figure 3: NVDA Close Price (2016 to 2025)", x = "Date", y = "Close (USD)") +
+  labs(title = "Figure 2: NVDA Close Price (2016 to 2025)", x = "Date", y = "Close (USD)") +
   theme_minimal()
 
 ```
 
-The time series reveals a clear two-regime structure. From 2016 to early 2023, growth was gradual relative to what followed, punctuated by a sharp rally and subsequent drawdown around 2021–2022 tied to the crypto and gaming demand cycle. Beginning in early 2023, NVIDIA experienced a near-vertical price appreciation driven by an explosion in AI infrastructure spending, with its data center GPU business becoming the primary growth engine. This structural break is not just a visual observation; it has direct implications for modeling, since any pattern-recognition approach trained on the early regime may not generalize to the later one.
+The time series reveals a clear two-regime structure. From 2016 to early 2023, growth was gradual relative to what followed, punctuated by a sharp rally and subsequent drawdown around 2021–2022 tied to the crypto and gaming demand cycle. Beginning in early 2023, NVIDIA experienced a near-vertical price appreciation driven by an explosion in AI infrastructure spending, with its data center GPU business becoming the primary growth engine.
 
-```{r figure4, echo=FALSE}
+```{r figure3, echo=FALSE, fig.width=6, fig.height=3, out.width="85%"}
 
 # Bivariate Exploration of Volume and Time
 ggplot(df, aes(x = Date, y = Volume_M)) +
@@ -247,7 +262,7 @@ ggplot(df, aes(x = Date, y = Volume_M)) +
   geom_smooth(method = "loess", span = 0.15, se = TRUE,
               color = "#6c3483", fill = "#d2b4de", linewidth = 1.1) +
   labs(
-    title   = "Figure 4: NVDA Daily Trading Volume (Millions of Shares), 2016 to 2025",
+    title   = "Figure 3: NVDA Daily Trading Volume (Millions of Shares), 2016 to 2025",
     x       = "Date",
     y       = "Volume (Millions)",
     caption = "Note: Faded line represents raw daily values. Solid line is a LOESS trend with a 95% confidence interval ribbon."
@@ -260,84 +275,13 @@ ggplot(df, aes(x = Date, y = Volume_M)) +
   )
 ```
 
-```{r table4, echo=FALSE}
-
-df %>%
-  mutate(Year = format(Date, "%Y")) %>%
-  group_by(Year) %>%
-  summarise(
-    `Median Vol (M)` = round(median(Volume_M, na.rm = TRUE), 1),
-    `Mean Vol (M)`   = round(mean(Volume_M,   na.rm = TRUE), 1),
-    `Max Vol (M)`    = round(max(Volume_M,    na.rm = TRUE), 1),
-    `Trading Days`   = n()
-  ) %>%
-  kable(caption = "Table 4: Annual Volume Summary (Millions of Shares)")
-```
-
-The smoothed trend (Figure 4) reveals that share volume was highest in 2016 to 2018, declined through the early 2020s, and has since stabilized at a lower baseline. This pattern is somewhat counterintuitive given that NVIDIA's price rose dramatically over the same period. The explanation is mechanical: as the share price increased by orders of magnitude, each individual share became more expensive, so the same dollar amount of institutional activity translates to far fewer shares traded. This motivates our use of `rel_volume` (volume relative to its 20-day moving average) rather than raw share count as a modeling feature, since relative volume is regime-stable and captures unusual institutional activity regardless of the prevailing price level.
+The smoothed trend (Figure 3) reveals that share volume was highest in 2016 to 2018, declined through the early 2020s, and has since stabilized at a lower baseline. This pattern is somewhat counterintuitive given that NVIDIA's price rose dramatically over the same period. The explanation is mechanical: as the share price increased by orders of magnitude, each individual share became more expensive, so the same dollar amount of institutional activity translates to far fewer shares traded. This motivates our use of `rel_volume` (volume relative to its 20-day moving average) rather than raw share count as a modeling feature, since relative volume is regime-stable and captures unusual institutional activity regardless of the prevailing price level.
 
 ### Engineered Features Over Time
 
 Having established the baseline price and volume picture, we now examine how our engineered features evolve across the same time horizon. These plots are critical for understanding whether the features capture distinct market regimes or merely echo the price trend.
 
-```{r figure5, echo=FALSE}
-
-# Log Returns Over Time -- faded raw + smoothed conditional mean + volatility envelope
-df_model <- df_model %>%
-  mutate(smooth_vol_upper =  2 * vol_20d,
-         smooth_vol_lower = -2 * vol_20d)
-
-ggplot(df_model, aes(x = Date)) +
-  geom_ribbon(aes(ymin = smooth_vol_lower, ymax = smooth_vol_upper,
-                  fill = "2x 20-Day Vol Envelope"),
-              alpha = 0.35) +
-  geom_line(aes(y = log_return, color = "Raw Log Return"),
-            linewidth = 0.25, alpha = 0.4) +
-  geom_smooth(aes(y = log_return, color = "LOESS Trend"),
-              method = "loess", span = 0.1, se = FALSE, linewidth = 1.0) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
-  scale_color_manual(
-    name   = "Series",
-    values = c("Raw Log Return" = "#2ecc71", "LOESS Trend" = "#1a7a40")
-  ) +
-  scale_fill_manual(
-    name   = "Envelope",
-    values = c("2x 20-Day Vol Envelope" = "#a9dfbf")
-  ) +
-  labs(
-    title   = "Figure 5: NVDA Daily Log Returns Over Time",
-    x       = "Date",
-    y       = "Log Return",
-    caption = "Note: Shaded ribbon represents +/- 2 standard deviations of the 20-day rolling volatility."
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position       = "bottom",
-    plot.caption          = element_text(hjust = 0, size = 9, color = "gray30"),
-    plot.caption.position = "plot"
-  )
-
-```
-
-```{r table5, echo=FALSE}
-
-df_model %>%
-  mutate(Year = format(Date, "%Y")) %>%
-  group_by(Year) %>%
-  summarise(
-    `Mean Return`   = round(mean(log_return,   na.rm = TRUE), 4),
-    `Median Return` = round(median(log_return, na.rm = TRUE), 4),
-    `Std Dev`       = round(sd(log_return,     na.rm = TRUE), 4),
-    `Max Return`    = round(max(log_return,    na.rm = TRUE), 4),
-    `Min Return`    = round(min(log_return,    na.rm = TRUE), 4),
-    `Trading Days`  = n()
-  ) %>%
-  kable(caption = "Table 5: Annual Log Return Summary Statistics")
-```
-
-Log returns oscillate around zero throughout the series, confirming stationarity. The shaded ribbon shows the +/- 2 standard deviation volatility envelope derived from the 20-day rolling standard deviation, wider bands indicate higher-risk regimes. The table makes it easy to see which years had the most extreme swings and whether mean returns were meaningfully different from zero year to year.
-
-```{r figure6, echo=FALSE}
+```{r figure4, echo=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 # Rolling Volatility Over Time
 df_model %>%
@@ -353,7 +297,7 @@ df_model %>%
   scale_alpha_manual(values = c("5-Day" = 0.35, "20-Day" = 0.9)) +
   scale_linewidth_manual(values = c("5-Day" = 0.3, "20-Day" = 0.8)) +
   labs(
-    title   = "Figure 6: Rolling Volatility Over Time (5-Day vs 20-Day)",
+    title   = "Figure 4: Rolling Volatility Over Time (5-Day vs 20-Day)",
     x       = "Date",
     y       = "Std Dev of Log Return",
     caption = "Note: 5-day line is faded to reduce visual noise. 20-day line captures regime-level volatility."
@@ -368,24 +312,11 @@ df_model %>%
 
 ```
 
-```{r table6, echo=FALSE}
+By muting the noise of the 5-day moving average and emphasizing the 20-day trend, the underlying volatility regimes emerge. While the 5-day line highlights acute short-term fluctuations, the 20-day line offers a smoother view of the stock's price action. Even with this longer-term smoothing, both metrics reflect the high level of risk inherent in an individual equity.
 
-df_model %>%
-  mutate(Year = format(Date, "%Y")) %>%
-  group_by(Year) %>%
-  summarise(
-    `Median 20D Vol` = round(median(vol_20d, na.rm = TRUE), 4),
-    `Mean 20D Vol`   = round(mean(vol_20d,   na.rm = TRUE), 4),
-    `Max 20D Vol`    = round(max(vol_20d,    na.rm = TRUE), 4)
-  ) %>%
-  kable(caption = "Table 6: Annual 20-Day Rolling Volatility Summary")
-```
+```{r figure5, echo=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
-By fading the noisy 5-day line and bolding the 20-day, the underlying volatility regimes become clear. The annual table confirms which years were the most turbulent. Pay particular attention to peak 20-day volatility, which marks the most stressful market environments in the dataset.
-
-```{r figure7, echo=FALSE}
-
-# RSI Over Time -- shaded zones + faded raw + smoothed trend
+# RSI Over Time
 ggplot(df_model, aes(x = Date, y = rsi_14)) +
   annotate("rect", xmin = min(df_model$Date), xmax = max(df_model$Date),
            ymin = 70, ymax = 100, fill = "#fadbd8", alpha = 0.4) +
@@ -406,7 +337,7 @@ ggplot(df_model, aes(x = Date, y = rsi_14)) +
   annotate("text", x = min(df_model$Date), y = 27,
            label = "Oversold (30)",   hjust = 0, size = 3, color = "#c0392b") +
   labs(
-    title   = "Figure 7: 14-Day RSI Over Time",
+    title   = "Figure 5: 14-Day RSI Over Time",
     x       = "Date",
     y       = "RSI",
     caption = "Note: Red shaded zone marks overbought readings (RSI >= 70). Blue shaded zone marks oversold readings (RSI <= 30)."
@@ -420,27 +351,9 @@ ggplot(df_model, aes(x = Date, y = rsi_14)) +
 
 ```
 
-```{r table7, echo=FALSE}
+The shaded zones render overbought and oversold conditions immediately legible, removing the need to trace individual spikes. By focusing on the smoothed trend, the medium-term RSI drift becomes apparent. Figure 5 illustrates that overbought conditions occurred more frequently than oversold ones over this period, suggesting a sustained bullish bias in the underlying momentum.
 
-df_model %>%
-  mutate(
-    Year   = format(Date, "%Y"),
-    Signal = case_when(
-      rsi_14 >= 70 ~ "Overbought (>=70)",
-      rsi_14 <= 30 ~ "Oversold (<=30)",
-      TRUE         ~ "Neutral"
-    )
-  ) %>%
-  group_by(Year, Signal) %>%
-  summarise(Days = n(), .groups = "drop") %>%
-  tidyr::pivot_wider(names_from = Signal, values_from = Days, values_fill = 0) %>%
-  mutate(`Total Days` = rowSums(across(where(is.numeric)))) %>%
-  kable(caption = "Table 7: Days Spent in Each RSI Zone by Year")
-```
-
-The shaded zones make overbought and oversold conditions immediately legible without needing to trace individual spikes. The smoothed trend shows the medium-term RSI drift. The table reveals exactly how many trading days per year were spent in extreme territory, which informs how often these threshold signals would actually fire in a classifier.
-
-```{r figure8, echo=FALSE}
+```{r figure6, echo=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 # MACD Histogram Over Time
 ggplot(df_model, aes(x = Date, y = macd_hist, fill = macd_hist > 0)) +
@@ -459,7 +372,7 @@ ggplot(df_model, aes(x = Date, y = macd_hist, fill = macd_hist > 0)) +
               inherit.aes = FALSE) +
   geom_hline(yintercept = 0, color = "black", linewidth = 0.5) +
   labs(
-    title   = "Figure 8: MACD Histogram Over Time",
+    title   = "Figure 6: MACD Histogram Over Time",
     x       = "Date",
     y       = "MACD minus Signal",
     caption = "Note: Dark overlaid line is a LOESS smooth of the histogram values."
@@ -473,26 +386,7 @@ ggplot(df_model, aes(x = Date, y = macd_hist, fill = macd_hist > 0)) +
 
 ```
 
-```{r table8, echo=FALSE}
-
-df_model %>%
-  mutate(
-    Year   = format(Date, "%Y"),
-    Signal = ifelse(macd_hist > 0, "Bullish", "Bearish")
-  ) %>%
-  group_by(Year, Signal) %>%
-  summarise(Days = n(), .groups = "drop") %>%
-  tidyr::pivot_wider(names_from = Signal, values_from = Days, values_fill = 0) %>%
-  mutate(
-    `Total Days`  = Bullish + Bearish,
-    `Pct Bullish` = round(100 * Bullish / `Total Days`, 1)
-  ) %>%
-  kable(caption = "Table 8: MACD Bullish vs Bearish Days by Year")
-```
-
-Switching from the overlapping MACD/Signal line plot to a bar chart of the histogram (MACD minus Signal) makes the momentum signal far easier to read. Green bars above zero indicate bullish crossovers; red bars below indicate bearish. The smoothed overlay traces the medium-term momentum trend. The table shows what fraction of each year was spent in bullish vs. bearish MACD territory. Years with a high percentage of bullish readings generally coincide with NVIDIA's strongest rallies.
-
-
+The MACD Histogram data from 2016 to 2025 reveals a market characterized by frequent momentum shifts rather than prolonged, one-sided dominance. By applying a LOESS smooth to the histogram, the underlying momentum cycles become visible, filtering out the daily noise to show periods where bullish or bearish pressure truly gained structural hold. While individual years like 2019 showed a strong bullish lean at 62.3%, the ten-year average remains remarkably balanced, with most years hovering near a 50% split between bullish and bearish days. This suggests that while short-term spikes are aggressive, the long-term momentum regime is mean-reverting, requiring traders to remain agile as the asset oscillates between these overextended states.
 
 ## Stationarity Testing
 
@@ -515,15 +409,16 @@ print(adf.test(log_ret_clean))
 
 For the raw `Close` price, the test returned a p-value of 0.99. Since this is well above the 0.05 threshold, we cannot reject the null hypothesis, confirming the price data is non-stationary and unsuitable for direct modeling. In contrast, when we apply the ADF test to our `log_return` series, the p-value drops to 0.01. This allows us to reject the null hypothesis with high confidence, statistically confirming that the log returns are stationary. By transforming the raw prices into log returns, we have effectively removed the stochastic trend and created a stable series. In other words, by using log returns instead of the given price data, we will be able to ensure our models use and learn legitimate patterns in volatility rather than chasing artificial trends.
 
-
-
 ## Autocorrelation Plots
 
-```{r figure9, echo = FALSE}
+```{r figure7, echo = FALSE, fig.width=6, fig.height=3, out.width="85%"}
 
-par(mar = c(5, 4, 4, 2))
+par(mfrow = c(1, 2), mar = c(5, 4, 4, 2))
 
-Acf(log_ret_clean, main = "Figure 9: ACF of NVDA Log Returns", lag.max = 35)
+Acf(log_ret_clean, main = "Figure 7a: ACF of NVDA", lag.max = 35)
+Pacf(log_ret_clean, main = "Figure 7b: PACF of NVDA", lag.max = 35)
+
+par(mfrow = c(1, 1))
 
 ```
 
@@ -531,19 +426,13 @@ To evaluate the predictability of NVIDIA's stock, we performed an Autocorrelatio
 
 Our output for the NVDA log returns shows that nearly all spikes fall within the blue dashed lines, which represent the 95% confidence interval for statistical significance. This absence of consistent linear autocorrelation indicates that the daily returns behave essentially as "white noise."
 
-```{r figure9_pacf, echo=FALSE}
-Pacf(log_ret_clean, main = "Figure 9b: PACF of NVDA Log Returns", lag.max = 35)
-```
-
 The PACF plot mirrors these findings, with the vast majority of bars falling within the 95% confidence interval and no consistent repeating pattern across lags.
 
 Although strong linear dependencies are largely absent, this does not rule out ARIMA as a modeling approach. ARIMA can still produce useful short-term forecasts on near-random series, particularly when used to characterize the return distribution and generate a probabilistic forecast interval. We include it in the modeling section as our time-series baseline, alongside the classification models.
 
-
-
 ## Clustering
 
-```{r figure10, echo = FALSE}
+```{r figure8, echo = FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 # K-means Clustering
 features        <- df %>% select(Close, High, Low, Open, Volume)
@@ -558,7 +447,7 @@ ggplot(df, aes(x = Close, y = Volume, color = cluster)) +
   geom_point(alpha = 0.5) +
   theme_minimal() +
   labs(
-    title = "Figure 10: K-Means Clustering of NVDA Price and Volume",
+    title = "Figure 8: K-Means Clustering of NVDA Price and Volume",
     x     = "Close Price",
     y     = "Volume",
     color = "Cluster ID"
@@ -568,11 +457,11 @@ ggplot(df, aes(x = Close, y = Volume, color = cluster)) +
 
 To explore structural segments within the dataset, we performed K-means clustering on the price and volume features. It is important to note that clustering is fundamentally ill-suited for this dataset, as we have already established through our stationarity tests that the data is non-stationary and lacks stable, repeatable patterns. However, as this analysis was a project requirement, we proceeded with a basic K-means approach to empirically demonstrate this limitation.
 
-As illustrated in Figure 10, the algorithm partitioned the data into three distinct groups; however, these clusters primarily segregate the data based on simple magnitude, grouping periods of low price/volume versus high price/volume, rather than identifying actionable market dynamics. This result confirms that standard clustering is an inefficient tool for this specific time-series dataset. Because financial returns are governed by complex temporal dependencies rather than static spatial proximity, basic clustering algorithms fail to isolate meaningful predictive signals. Consequently, we have excluded these cluster assignments from our final predictive modeling phase, opting instead for the engineered feature set constructed earlier, which is better suited to capturing the subtle, time-dependent patterns essential for stock price forecasting.
+As illustrated in Figure 8, the algorithm partitioned the data into three distinct groups; however, these clusters primarily segregate the data based on simple magnitude, grouping periods of low price/volume versus high price/volume, rather than identifying actionable market dynamics. This result confirms that standard clustering is an inefficient tool for this specific time-series dataset. Because financial returns are governed by complex temporal dependencies rather than static spatial proximity, basic clustering algorithms fail to isolate meaningful predictive signals. Consequently, we have excluded these cluster assignments from our final predictive modeling phase, opting instead for the engineered feature set constructed earlier, which is better suited to capturing the subtle, time-dependent patterns essential for stock price forecasting.
 
 With the EDA complete, we have established the key properties of the data: a two-regime price history, near-zero autocorrelation in log returns, volatility clustering, and a rich feature set capturing momentum, mean-reversion, and volume dynamics. The following section describes how these features are used within each predictive model.
 
----
+\newpage
 
 # Methods
 
@@ -684,8 +573,6 @@ get_metrics <- function(pred, actual, model_name) {
 results_list <- list()
 ```
 
-
-
 ## Model 1: ARIMA
 
 ### Model Description
@@ -696,7 +583,7 @@ We use `auto.arima` to let the data determine the appropriate model order rather
 
 $$\phi(B)(1 - B)^d r_t = \theta(B) \varepsilon_t$$
 
-```{r arima_model, echo=FALSE, message=FALSE, warning=FALSE}
+```{r arima_model, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 train_returns <- train_df$log_return
 test_returns  <- test_df$log_return
@@ -717,7 +604,7 @@ The residual diagnostics below check whether ARIMA has captured all available li
 checkresiduals(arima_model)
 ```
 
-```{r arima_classify, echo=FALSE, message=FALSE, warning=FALSE}
+```{r arima_classify, echo=FALSE, message=FALSE, warning=FALSE, fig.width=6, fig.height=4, out.width="85%"}
 
 arima_order <- arimaorder(arima_model)
 p_a <- arima_order[1]; d_a <- arima_order[2]; q_a <- arima_order[3]
@@ -737,8 +624,6 @@ pred_arima <- as.factor(ifelse(rolling_preds >= 0, 1, 0))
 results_list[["ARIMA"]] <- get_metrics(pred_arima, y_test, "ARIMA")
 
 ```
-
-
 
 ## Baseline: Logistic Regression
 
@@ -768,8 +653,6 @@ pred_logit <- as.factor(as.vector(pred_logit))
 results_list[["Logistic Regression"]] <- get_metrics(pred_logit, y_test, "Logistic Regression")
 
 ```
-
-
 
 ## Model 2: Random Forest
 
@@ -834,7 +717,7 @@ results_list[["Soft Voting Ensemble"]] <- get_metrics(pred_ensemble, y_test, "So
 
 ```
 
----
+\newpage
 
 # Results
 
@@ -850,46 +733,10 @@ kable(results_df,
       align   = c("l", "c", "c", "c", "c"))
 ```
 
-```{r results_plot, echo=FALSE, message=FALSE, warning=FALSE}
-
-results_long <- results_df %>%
-  tidyr::pivot_longer(cols = c(Accuracy, Precision, Recall, F1),
-                      names_to = "Metric", values_to = "Value")
-
-ggplot(results_long, aes(x = reorder(Model, Value), y = Value, fill = Metric)) +
-  geom_col(position = "dodge", alpha = 0.85) +
-  geom_hline(yintercept = 0.5, linetype = "dashed", color = "gray40", linewidth = 0.7) +
-  scale_fill_manual(values = c(
-    "Accuracy"  = "#2980b9",
-    "Precision" = "#27ae60",
-    "Recall"    = "#e67e22",
-    "F1"        = "#8e44ad"
-  )) +
-  coord_flip() +
-  labs(
-    title   = "Figure 12: Model Comparison Across Evaluation Metrics",
-    x       = "Model",
-    y       = "Score",
-    fill    = "Metric",
-    caption = "Note: Dashed line at 0.5 represents the random-chance baseline."
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position       = "bottom",
-    plot.caption          = element_text(hjust = 0, size = 9, color = "gray30"),
-    plot.caption.position = "plot"
-  )
-```
-
 The results above show that all four models perform within a narrow band just above the 50% random-chance baseline, with accuracy ranging from 51.01% (ARIMA) to 54.84% (Soft Voting Ensemble).
 
-The most reliable metric for this task is F1, which balances precision and recall and penalizes the tendency to simply predict "up" every day. 
+The most reliable metric for this task is F1, which balances precision and recall and penalizes the tendency to simply predict "up" every day. On that metric, Logistic Regression scores highest at 0.6995, but this is driven almost entirely by its near-perfect Recall of 0.9741 rather than any genuine discriminative ability. Random Forest produces the most balanced profile across all four metrics, with an F1 of 0.5344 and a Precision of 0.5690, suggesting it is the only model that attempts to distinguish up days from down days in a meaningful way. The Soft Voting Ensemble improves on Random Forest in Accuracy (0.5484 vs. 0.5222) and Precision (0.5728 vs. 0.5690) while pulling Recall back from the extreme seen in Logistic Regression, landing at an F1 of 0.6177. 
 
-On that metric, Logistic Regression scores highest at 0.6995, but this is driven almost entirely by its near-perfect Recall of 0.9741 rather than any genuine discriminative ability. 
-
-Random Forest produces the most balanced profile across all four metrics, with an F1 of 0.5344 and a Precision of 0.5690, suggesting it is the only model that attempts to distinguish up days from down days in a meaningful way. 
-
-The Soft Voting Ensemble improves on Random Forest in Accuracy (0.5484 vs. 0.5222) and Precision (0.5728 vs. 0.5690) while pulling Recall back from the extreme seen in Logistic Regression, landing at an F1 of 0.6177. 
 No model clears a threshold that would make it practically actionable as a trading signal.
 
 ## ARIMA
@@ -920,7 +767,7 @@ All four models fall within an accuracy range of 51.01% to 54.84%, clustered nar
 
 For context, a buy-and-hold position in NVDA over the 2016 to 2025 sample period would have returned over 3,000%, driven by structural factors such as AI infrastructure demand and GPU market dominance.
 
----
+\newpage
 
 # Discussion
 
@@ -959,3 +806,9 @@ Dickey, D. A., & Fuller, W. A. (1979). "Distribution of the estimators for autor
 Fischer, T., & Krauss, C. (2018). "Deep learning with long short-term memory networks for financial market predictions." European Journal of Operational Research.
 
 Hyndman, R. J., & Khandakar, Y. (2008). "Automatic time series forecasting: the forecast package for R." Journal of Statistical Software, 27(3).
+
+---
+
+# Appendix
+
+The code for the project has been attached in the .R file, `Data 210 Final Project Code.R`. It contains more visualizations though is a lot more disorganized than this report. Alternatively, you can look on the GitHub, https://github.com/txchnothunder/Data-210-Final-Project, which has the same .R file as well as the .Rmd and pdf of the project.
